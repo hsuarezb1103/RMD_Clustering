@@ -1,0 +1,325 @@
+
+---
+title: "Fundamentos de Data Science: PEC2 - Algoritmos de clustering"
+author: "UOC - Master BI - Business Analytics Henry Alberto Suárez Badillo"
+date: "Noviembre del 2020"
+output:
+  html_document:
+    highlight: default
+    number_sections: yes
+    theme: cosmo
+    toc: yes
+    toc_depth: 2
+    includes:
+      in_header: B0.477-PEC-header.html
+  pdf_document:
+    highlight: zenburn
+    toc: yes
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+******
+# Objetivos e información disponible
+******
+
+El objetivo de esta segunda PEC se centra en la determinación de distintos perfiles de asegurados del automóvil. 
+
+Las variables que se definen en la base de datos y sus contenidos son:
+
+--poliza: Identificador de póliza
+
+--Sexo: Sexo del cliente
+
+--sri: Situación de riesgo o zona de circulación urbana o no urbana
+
+--gdi: Contratada garantía de daños propios o no
+
+--sin: Número de siniestros en el año analizado
+
+--ant_comp: Antigüedad del cliente en la compañía (en años)
+
+--ant_perm: Antigüedad del permiso de conducir del asegurado (en años)
+
+--edad: Edad del asegurado (en años)
+
+--ant_veh: Antigüedad del vehículo asegurado (en años).
+
+
+
+
+
+```{r, include = FALSE}
+setwd("E:/UOC/B0.477 - Fundamentos de Data Science aula 2/PEC2")
+Cartera<-read.table("Datos_analisis_clusters.csv", head=TRUE,sep=";")
+clus<-Cartera[,c("sin","ant_comp","ant_perm","edad","ant_veh")]
+clus_norm<-clus
+
+#Remplazamos las columnas de clus_norm por las columnas de clus normalizadas:
+ clus_norm[,c("sin")] <- (clus$sin-mean(clus$sin))/sd(clus$sin)
+ clus_norm[,c("ant_comp")] <- (clus$ant_comp-mean(clus$ant_comp))/sd(clus$ant_comp)
+ clus_norm[,c("ant_perm")] <- (clus$ant_perm-mean(clus$ant_perm))/sd(clus$ant_perm)
+ clus_norm[,c("edad")] <- (clus$edad-mean(clus$edad))/sd(clus$edad)
+ clus_norm[,c("ant_veh")] <- (clus$ant_veh-mean(clus$ant_veh))/sd(clus$ant_veh)
+
+## Uso de la función hclust() para la aglomeración de elementos
+distances = dist(clus_norm, method = "euclidean")
+
+#Selección del método de agrupación
+clus_norm_Jerarquico = hclust(distances, method = "ward.D")
+
+## Asignación de los clusters 
+clus_jerarquico=clus
+View(clus_jerarquico)
+
+#elegir 4 clusters.
+NumCluster=4
+
+clus_jerarquico$clusterJerar= cutree(clus_norm_Jerarquico, k = NumCluster)
+#Agrupación no jerárquica
+set.seed(123)
+modelo_k3<-kmeans(clus_norm,centers=3)
+modelo_k3$centers
+modelo_k3$totss
+modelo_k3$withinss
+modelo_k3$tot.withinss
+modelo_k3$betweenss
+#Suma de cuadrados entre grupos
+kmeans(clus_norm,2)$betweenss
+kmeans(clus_norm,3)$betweenss
+
+#Suma de cuadrados dentro grupos
+kmeans(clus_norm,2)$tot.withinss 
+kmeans(clus_norm,3)$tot.withinss
+
+#Suma de cuadrados total
+kmeans(clus_norm,2)$totss 
+kmeans(clus_norm,3)$totss
+
+clus_kmeans=clus
+
+NumCluster=5
+set.seed(123)
+Modelo=kmeans(clus_norm,NumCluster)
+clus_kmeans$clusterKmeans= Modelo$cluster
+head(clus_kmeans)
+```
+******
+# Ejercicios PEC2
+******
+
+******
+## Ejercicio 1
+******
+En el apartado sobre la *_elección del número de clústers_* del algoritmo kmeans se muestra un gráfico que toma como variable referencia la suma de cuadrados entre '$betweenss'.
+
+Dibuja un gráfico equivalente, tomando como referencia la suma de cuadrados en '$tot.withinss' e interpreta el resultado proponiendo un número de clústers adecuado para el juego de datos.
+
+******
+## Respuesta 1
+******
+La gráfica obtenida, muestra que a partir de 5 grupos, la suma de cuadrados al interior de cada uno, no disminuye de manera significativa, esto implica que con k = 5, se obtienen grupos compactos y en 5 se ubica el "punto de quiebre" o "codo".
+
+Con el fin de confirmar la determinación gráfica realizada, se utilizó la función fviz_nbclust para calcular el número de clusters óptimo. En este cálculo, se utilizó el método: "silhouette", con el cual se obtuvo 5 clusters como número óptimo.
+
+```{r,eval=TRUE,echo=TRUE,warning=FALSE, message=FALSE}
+#Se cargan las ibrerías necesarias 
+library(tidyverse)
+library(NbClust)
+library(cluster)
+library(factoextra)
+set.seed(123)
+bss <- kmeans(clus_norm,centers=1)$tot.withinss
+ for (i in 2:10) bss[i] <- kmeans(clus_norm,centers=i)$tot.withinss
+
+plot(1:10, bss, type="l", xlab="Número de grupos",ylab="Sumas de cuadrados dentro de grupos")
+
+fviz_nbclust(clus_norm, kmeans, method = "silhouette")
+
+```
+
+******
+## Ejercicio 2
+******
+Construir una clusterización en 6 clusters utilizando el algoritmo kmeans. Represente los clusters tal y como se ha hecho en el apartado *_representación de los cluster_* y describa alguno de los grupos (al menos 4).
+
+******
+## Respuesta 2
+******
+El grupo 4 recoge todos los siniestrados; El grupo 1 contiene a los conductores de mayor antigüedad en la compañía; El grupo 6 está conformado por los vehículos más nuevos, con menor antigüedad en el permiso de conducir y conductores más jovenes; Al grupo 5 lo integran los conductores de mayor edad; El grupo 3 contiene los usuarios de menos antigüedad en la compañía y finalmente, el grupo 2 está conformado por los usuarios con valores intermedios en todas las variables evaluadas.
+
+
+```{r,eval=TRUE,echo=TRUE,warning=FALSE, message=FALSE}
+#Escriba su código aquí
+clus_kmeans=clus
+NumCluster=6
+set.seed(123)
+Modelo=kmeans(clus_norm,NumCluster)
+clus_kmeans$clusterKmeans= Modelo$cluster
+head(clus_kmeans)
+aggregate(.~clusterKmeans,FUN=mean, data=clus_kmeans)
+table(clus_kmeans$clusterKmeans)
+```
+
+******
+## Ejercicio 3
+******
+En el apartado de *_asignacion de los clusters_* del algoritmo kmeans aparece el código set.seed(123). Vuelva a realizar una agrupación kmeans con 5 clusters pero utilizando el código set.seed(12345). ¿Obtenemos el mismo resultado?, compare los resultados. ¿Cuál es el motivo por el que ocurre esto?
+
+******
+## Respuesta 3
+******
+
+ya que kmeans selecciona aleatoriamente las primeras observaciones en el proceso iterativo, al cambiar el valor de la semilla (seed), se obtienen resultados totalmente diferentes.
+Para nuestro caso, con el valor de semilla = 12345, se obtienen los valores de medias para cada variable dentro de los grupos que se muestran en la tabla, que son totalmente diferentes a los obtenidos con valor de semilla = 123.  De igual manera se obtienen diferentes valores para las medias de todas las variables en cada grupo con diferentes valores de semilla.
+
+```{r,eval=TRUE,echo=TRUE,warning=FALSE, message=FALSE}
+#Escriba su código aquí
+clus_kmeans=clus
+NumCluster=5
+set.seed(12345)
+Modelo=kmeans(clus_norm,NumCluster)
+clus_kmeans$clusterKmeans= Modelo$cluster
+aggregate(.~clusterKmeans,FUN=mean, data=clus_kmeans)
+table(clus_kmeans$clusterKmeans)
+NumCluster=5
+set.seed(123)
+Modelo=kmeans(clus_norm,NumCluster)
+clus_kmeans$clusterKmeans= Modelo$cluster
+aggregate(.~clusterKmeans,FUN=mean, data=clus_kmeans)
+table(clus_kmeans$clusterKmeans)
+```
+
+******
+## Ejercicio 4
+******
+Al presentar los datos obtenidos por el algoritmos jerárquico para 4 cluster a los responsables del negocio, nos preguntan si el reparto de hombres y mujeres entre los clusters es homogéneo o hay alguno en el que haya mayoría. Calcule el porcentaje de hombres y mujeres que hay en cada cluster. ¿Qué conclusiones se pueden extraer de los resultados?
+
+******
+## Respuesta 4
+******
+En todos los clusters hay mayoría de hombres como muestran los resultados, lo cual es consecuente con la proporción de sexos global.Las proporciones Mujer/Hombre en cada cluster están cerca del 19/81 global.
+
+Por otro lado, los segmentos de edades que representan los clústers 1 y 3 muestran un leve incremento en la proporción Mujer/Hombre. De esta manera, se insinúa que más mujeres jovenes y de mediana edad (media = 26 años y media = 40 años) están comprando vehículos y pólizas.  
+
+De esto se concluye que el mercado de vehículos, así como el mercado de pólizas en el universo analizado, es claramente masculino.  Lo que a su vez implica la existencia de un área de oportunidad tanto para el mercado de vehículos, como para el mercado de pólizas en el segmento de mujeres jovenes y en el segmento de mujeres de mediana edad.   
+
+```{r,eval=TRUE,echo=TRUE,warning=FALSE, message=FALSE}
+#La tabla clus_jerarquico que contiene la asignación de cada usuario a un grupo; de la tabla cartera unimos las primeras 4 columnas: Poliza, Sexo, sri, gdi  
+datos_total <- cbind(clus_jerarquico, Cartera[ , 1:4])
+datos_total$Sexo <- as.factor(datos_total$Sexo)
+#se carga la librería dplyr
+library(dplyr)
+nueva_tabla <- group_by(datos_total, clusterJerar, Sexo)
+prop.table(table(nueva_tabla$Sexo, nueva_tabla$clusterJerar), margin = 2)
+barplot(prop.table(table(nueva_tabla$Sexo, nueva_tabla$clusterJerar), margin = 2),col=c("darkblue","red"))
+legend(5,1,c("Hombre","Mujer"),fill = c("darkblue","red"))
+agrupacion <- group_by(nueva_tabla, clusterJerar, Sexo)
+summarise(agrupacion, media_edad = mean(edad))
+prop.table(table(nueva_tabla$Sexo))
+barplot(prop.table(table(nueva_tabla$Sexo)),col=c("darkblue","red"))
+
+
+```
+
+******
+## Ejercicio 5
+******
+En el apartado de Manipulación y representación de variables se ha realizado un análisis gráfico de la relación entre el número de siniestros y el sexo del asegurado. Ahora nos gustaría realizar un análisis de la relación entre el número de siniestros y la contratación o no de garantía de daños propios. ¿Existe alguna relación?. Muestre la representación gráfica y razone la respuesta.
+
+******
+## Respuesta 5
+******
+
+Para los grupos de usuarios con 0, 1, 2, y 3 siniestros se observó una proporción cercana al 70% / 30% (no contratada versus contratada). Estos grupos contienen el 99.96% de los usuarios, por lo que se puede inferir que no existe correlación entre la contratación o no contratación de la garantía de daños propios y el número de siniestros observado, ya que en todos los grupos la proporción es casi constante. 
+
+Consecuentemente, se evidencia el área de oportunidad de mercado que representan los segmentos de 0 a 3 siniestros.   
+
+En los grupos de 4 y 5 siniestros, que están conformados por 1 y 2 usuarios respectivamente, la proporción de contratación o no de garantía de daños propios, no es informativa.
+
+  0    1    2    3    4    5 
+7544  487   44   10    1    2 
+
+
+
+```{r,eval=TRUE,echo=TRUE,warning=FALSE, message=FALSE}
+#Escriba su código aquí
+library(dplyr)
+gdi_sin <- group_by(datos_total, gdi, sin)
+prop.table(table(gdi_sin$gdi, gdi_sin$sin), margin = 2)
+barplot(prop.table(table(gdi_sin$gdi, gdi_sin$sin), margin = 2),xlab="Número de siniestros", ylab="Proporción",col=c("darkblue","red"))
+legend(5,0.8,c("Contratada","No contratada"),fill = c("darkblue","red"))
+
+
+```
+
+
+******
+## Ejercicio 6
+******
+En el apartado de normalización de atributos, se seleccionan las variables cuantitativas para realizar la segmentación pero para la compañía aseguradora es fundamental incluir en la misma si tiene contratada la garantía de daños propios o no (variable gdi). ¿Es posible incluirlo en la segmentación como una variable más?. En caso afirmativo, realizar dicha inclusión y construir una segmentación kmeans con k=4. En caso contrario, indicar el motivo por el que no se puede incluir.
+
+******
+## Respuesta 6
+******
+No se debe incluir una variable categórica en el set de datos si se pretende analizar con k means "clásico", ya que este método se basa en el cálculo de las distancias medias entre los casos y  los centroides de sus respectivos grupos así como el cálculo de las distancias entre centroides.  
+
+Codificar la variable categórica tampoco soluciona el inconveniente, ya que carece de sentido el cálculo de distancias con respecto a un valor numérico que representa a una categoría.
+
+Para este caso con datos mixtos (continuos y categóricos) se utiliza alguna de dos variantes de k means:  k prototypes o k means con funciones de similaridad.  La primera variante integra a los algoritmos k means y k modes, lo que permite trabajar con datos mezclados; mientras la segunda variante utiliza funciones de similaridad en lugar de la distancia Euclídea.
+
+
+******
+## Ejercicio 7
+******
+En el apartado de asignación de clusters del algorimto kmeans se ha asignado a cada asegurado un segmento mediante el algoritmo no jerárquico kmeans considerando 5 centroides. ¿Podemos comparar estas asignaciones con las que se obtendrían separando en 5 grupos la segmentación realizada en el apartado Agrupación Jerárquica: Algoritmo Aglomerativo utilizando el algoritmo jerárquico hclust? ¿Son los mismos segmentos? ¿Hay diferencias?. Se pide presentar una tabla en la que se muestren el número de conductores asignados en función a los dos algoritmos (por ejemplo número de clientes asignados al cluster 2 mediante el algoritmo kmeans y al cluster 5 mediante el algoritmo jerárquico)
+
+******
+## Respuesta 7
+******
+
+Con el algoritmo jerárquico se asignaron 544 conductores al cluster 3,
+mientras con el algoritmo k means, se asignaron 2334 conductores al cluster 3
+
+Para el cluster 5 se asignaron:
+1358 conductores con el algoritmo jerárquico
+y 1233 conductores con el algoritmo k means
+
+De esta manera se evidencia que la segmentación obtenida con los dos tipos de algoritmos, es totalmente diferente como se muestra en la tabulación.
+
+De igual manera, en las cabeceras de las tablas con campo "clúster", se muestra una asignación distinta para los primeros casos.
+
+```{r,eval=TRUE,echo=TRUE,warning=FALSE, message=FALSE}
+#se calculan la distancia Euclídea para los objetos normalizados
+distances = dist(clus_norm, method = "euclidean")
+#Se aplica hclust con método de ward para realizar la agrupación 
+clus_norm_Jerarquico = hclust(distances, method = "ward.D")
+#se realiza copia del conjunto de datos
+clus_jerarquico=clus
+#Selección de 5 clusters
+NumCluster = 5
+#Asignación de cluster a cada elemento
+clus_jerarquico$clusterJerar= cutree(clus_norm_Jerarquico, k = NumCluster)
+#Se tabula el número de individuos asignados a cada cluster con el cluster jerárquico
+table(clus_jerarquico$clusterJerar)
+#se muestra la cabecera
+head(clus_jerarquico)
+
+#se realiza copia del conjunto de datos
+clus_kmeans=clus
+#Se asigna Semilla
+set.seed(123)
+#se ejecuta k means sobre la abla de valores normalizados
+Modelo=kmeans(clus_norm,NumCluster)
+#se agrega el clúster asignado como columna
+clus_kmeans$clusterKmeans= Modelo$cluster
+#Se muestra la cabecera
+head(clus_kmeans)
+#se tabula el número de individuos asignados a cada cluser con el método k means
+table(clus_kmeans$clusterKmeans)
+
+```
